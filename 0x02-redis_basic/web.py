@@ -1,36 +1,49 @@
 #!/usr/bin/env python3
-"""
-web cache and tracker
-"""
-import requests
+
 import redis
+import requests
 from functools import wraps
+from typing import Callable
 
-store = redis.Redis()
+redis_store = redis.Redis()
 
 
-def count_url_access(method):
-    """ Decorator counting how many times
-    a URL is accessed """
+def url_access_count(method: Callable) -> Callable:
+    """Decorator to track the number of times a URL is accessed."""
     @wraps(method)
     def wrapper(url):
-        cached_key = "cached:" + url
-        cached_data = store.get(cached_key)
-        if cached_data:
-            return cached_data.decode("utf-8")
+        """Wrapper function."""
+        key_count = f"count:{url}"
+        redis_store.incr(key_count)
+        return method(url)
 
-        count_key = "count:" + url
-        html = method(url)
-
-        store.incr(count_key)
-        store.set(cached_key, html)
-        store.expire(cached_key, 10)
-        return html
     return wrapper
 
 
-@count_url_access
+def data_cacher(method: Callable) -> Callable:
+    """Decorator to cache the result of the get_page function."""
+    @wraps(method)
+    def invoker(url):
+        """Wrapper function for caching."""
+        key_result = f"result:{url}"
+        cached_value = redis_store.get(key_result)
+        if cached_value:
+            return cached_value.decode("utf-8")
+
+        result = method(url)
+        redis_store.setex(key_result, 10, result)
+        return result
+
+    return invoker
+
+
+@url_access_count
+@data_cacher
 def get_page(url: str) -> str:
-    """ Returns HTML content of a url """
-    res = requests.get(url)
-    return res.text
+    """Obtain the HTML content of a particular URL."""
+    results = requests.get(url)
+    return results.text
+
+
+if __name__ == "__main__":
+    print(get_page('http://slowwly.robertomurray.co.uk'))
