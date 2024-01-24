@@ -1,38 +1,39 @@
 #!/usr/bin/env python3
-"""Expiring web cache and tracker module"""
 
-import redis
-import requests
-from typing import Callable
 from functools import wraps
+import redis
+from requests import get
+from typing import Callable
 
-redis_connection = redis.Redis()
+
+redis_client = redis.Redis()
 
 
-def count_requests(method: Callable) -> Callable:
+def responsed_cached_or_not(fn: Callable) -> Callable:
     """
-    Decorator that wraps around HTTP request functions to provide caching.
+    A simple decorator to cache a http request in redis
     """
-
-    @wraps(method)
+    @wraps(fn)
     def wrapper(url):
-        """Wrapper function for the count_requests decorator."""
-        redis_connection = redis.Redis()
-        redis_connection.incr(f"count:{url}")
-        cached_response = redis_connection.get(url)
+        """
+        The wrapper function which gets returned
+        by the decorator
+        """
+        redis_client.incr(f"count:{url}")
+        cached_response = redis_client.get(f"cached:{url}")
         if cached_response:
-            return cached_response.decode("utf-8")
-        response = method(url)
-        redis_connection.set(url, response, 10)
-        return response
+            return cached_response.decode('utf-8')
+        result = fn(url)
+        redis_client.setex(f"cached:{url}", 10, result)
+        return result
 
     return wrapper
 
 
-@count_requests
+@responsed_cached_or_not
 def get_page(url: str) -> str:
     """
-    Retrieves a web page, and caches the response for 10 seconds.
+    A simple function to make http requests
+    to a certain endpoint
     """
-    response = requests.get(url)
-    return response.text
+    return get(url).text
