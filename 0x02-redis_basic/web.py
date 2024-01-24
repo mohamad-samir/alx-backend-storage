@@ -1,36 +1,30 @@
 #!/usr/bin/env python3
+"""Implement an expiring web cache and tracker"""
+from datetime import timedelta
+from typing import Callable
 import requests
-import time
 from functools import wraps
-from typing import Dict
-
-cache: Dict[str, str] = {}
+import redis
 
 
-def get_page(url: str) -> str:
-    if url in cache:
-        print(f"Retrieving from cache: {url}")
-        return cache[url]
-    else:
-        print(f"Retrieving from web: {url}")
-        response = requests.get(url)
-        result = response.text
-        cache[url] = result
+def cache_track_response(method: Callable):
+    """Cache and track function response"""
+
+    @wraps(method)
+    def wrapper(url: str, *args, **kwargs):
+        """Implement the caching and tracking"""
+        count_key = "count:{}".format(url)
+        _redis = redis.Redis()
+        _redis.incr(count_key)
+        result = method(url, *args, **kwargs)
+        _redis.setex(url, timedelta(seconds=10), str(result))
         return result
 
+    return wrapper
 
-def cache_with_expiration(expiration: int):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            url = args[0]
-            key = f"count:{url}"
-            if key in cache:
-                count, timestamp = cache[key]
-                if time.time() - timestamp > expiration:
-                    result = func(*args, **kwargs)
-                    cache[key] = (count+1, time.time())
-                    return result
-                else:
-                    cache[key] = (count+1, timestamp)
-                    return
+
+@cache_track_response
+def get_page(url: str) -> str:
+    """Return HTML content of the `url` specified"""
+    response = requests.get(url)
+    return response.text
