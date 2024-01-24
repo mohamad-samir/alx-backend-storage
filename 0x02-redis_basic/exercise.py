@@ -14,8 +14,7 @@ UnionOfTypes = Union[str, bytes, int, float]
 
 def count_calls(method: Callable) -> Callable:
     """
-    a system to count how many
-    times methods of the Cache class are called.
+    A decorator to count how many times methods of the Cache class are called.
     :param method:
     :return:
     """
@@ -24,7 +23,7 @@ def count_calls(method: Callable) -> Callable:
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         """
-        Wrap
+        Wrapper function
         :param self:
         :param args:
         :param kwargs:
@@ -38,8 +37,8 @@ def count_calls(method: Callable) -> Callable:
 
 def call_history(method: Callable) -> Callable:
     """
-    add its input parameters to one list
-    in redis, and store its output into another list.
+    A decorator to add its input parameters to one list in redis,
+    and store its output into another list.
     :param method:
     :return:
     """
@@ -49,7 +48,7 @@ def call_history(method: Callable) -> Callable:
 
     @wraps(method)
     def wrapper(self, *args, **kwargs):
-        """ Wrapp """
+        """ Wrapper function """
         self._redis.rpush(i, str(args))
         res = method(self, *args, **kwargs)
         self._redis.rpush(o, str(res))
@@ -65,7 +64,7 @@ class Cache:
 
     def __init__(self):
         """
-        constructor of the redis model
+        Constructor of the redis model
         """
         self._redis = redis.Redis()
         self._redis.flushdb()
@@ -74,9 +73,8 @@ class Cache:
     @call_history
     def store(self, data: UnionOfTypes) -> str:
         """
-        generate a random key (e.g. using uuid),
-         store the input data in Redis using the
-          random key and return the key.
+        Generate a random key (e.g., using uuid),
+        store the input data in Redis using the random key and return the key.
         :param data:
         :return:
         """
@@ -84,11 +82,9 @@ class Cache:
         self._redis.mset({key: data})
         return key
 
-    def get(self, key: str, fn: Optional[Callable] = None) \
-            -> UnionOfTypes:
+    def get(self, key: str, fn: Optional[Callable] = None) -> UnionOfTypes:
         """
-        convert the data back
-        to the desired format
+        Convert the data back to the desired format.
         :param key:
         :param fn:
         :return:
@@ -98,10 +94,10 @@ class Cache:
         data = self._redis.get(key)
         return data
 
-    def get_int(self: bytes) -> int:
-        """get a number"""
-        return int.from_bytes(self, sys.byteorder)
+    def get_int(self, data: bytes) -> int:
+        """Get a number"""
+        return int.from_bytes(data, sys.byteorder)
 
-    def get_str(self: bytes) -> str:
-        """get a string"""
-        return self.decode("utf-8")
+    def get_str(self, data: bytes) -> str:
+        """Get a string"""
+        return data.decode("utf-8")
