@@ -104,13 +104,14 @@ class Cache:
         value = self._redis.get(key)
         return value.decode('utf-8')
 
-    def get_int(self, key: str) -> int:
-        '''
-            Get an int from the cache.
-        '''
-        value = self._redis.get(key)
-        try:
-            value = int(value.decode('utf-8'))
-        except Exception:
-            value = 0
-        return value
+
+def get_int(self, key: str) -> int:
+    '''
+    Get an int from the cache.
+    '''
+    value = self._redis.get(key)
+    try:
+        value = int(value.decode('utf-8'))
+    except (ValueError, TypeError):
+        value = 0
+    return value
