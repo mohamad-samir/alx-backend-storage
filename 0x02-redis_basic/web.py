@@ -1,36 +1,38 @@
 #!/usr/bin/env python3
-"""
-Caching request module
-"""
+"""Expiring web cache and tracker module"""
+
 import redis
 import requests
-from functools import wraps
 from typing import Callable
+from functools import wraps
+
+redis_connection = redis.Redis()
 
 
-def track_get_page(fn: Callable) -> Callable:
-    """ Decorator for get_page
+def count_requests(method: Callable) -> Callable:
     """
-    @wraps(fn)
-    def wrapper(url: str) -> str:
-        """ Wrapper that:
-            - check whether a url's data is cached
-            - tracks how many times get_page is called
-        """
-        client = redis.Redis()
-        client.incr(f'count:{url}')
-        cached_page = client.get(f'{url}')
-        if cached_page:
-            return cached_page.decode('utf-8')
-        response = fn(url)
-        client.set(f'{url}', response, 10)
+    Decorator that wraps around HTTP request functions to provide caching.
+    """
+
+    @wraps(method)
+    def wrapper(url):
+        """Wrapper function for the count_requests decorator."""
+        redis_connection = redis.Redis()
+        redis_connection.incr(f"count:{url}")
+        cached_response = redis_connection.get(url)
+        if cached_response:
+            return cached_response.decode("utf-8")
+        response = method(url)
+        redis_connection.set(url, response, 10)
         return response
+
     return wrapper
 
 
-@track_get_page
+@count_requests
 def get_page(url: str) -> str:
-    """ Makes a http request to a given endpoint
+    """
+    Retrieves a web page, and caches the response for 10 seconds.
     """
     response = requests.get(url)
     return response.text
